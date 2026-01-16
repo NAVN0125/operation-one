@@ -77,13 +77,17 @@ async def get_my_profile(
         db.commit()
         db.refresh(user)
     
+    expires_at = user.connection_code_expires_at.isoformat() if user.connection_code_expires_at else None
+    if expires_at and "+" not in expires_at and "Z" not in expires_at:
+        expires_at += "Z"
+
     return UserProfileResponse(
         id=user.id,
         email=user.email,
         name=user.name,
         display_name=user.display_name,
         connection_code=user.connection_code,
-        connection_code_expires_at=user.connection_code_expires_at.isoformat() if user.connection_code_expires_at else None,
+        connection_code_expires_at=expires_at,
     )
 
 
@@ -104,13 +108,17 @@ async def refresh_connection_code(
     db.commit()
     db.refresh(user)
     
+    expires_at = user.connection_code_expires_at.isoformat() if user.connection_code_expires_at else None
+    if expires_at and "+" not in expires_at and "Z" not in expires_at:
+        expires_at += "Z"
+
     return UserProfileResponse(
         id=user.id,
         email=user.email,
         name=user.name,
         display_name=user.display_name,
         connection_code=user.connection_code,
-        connection_code_expires_at=user.connection_code_expires_at.isoformat() if user.connection_code_expires_at else None,
+        connection_code_expires_at=expires_at,
     )
 
 
@@ -134,13 +142,17 @@ async def update_my_profile(
     db.commit()
     db.refresh(user)
     
+    expires_at = user.connection_code_expires_at.isoformat() if user.connection_code_expires_at else None
+    if expires_at and "+" not in expires_at and "Z" not in expires_at:
+        expires_at += "Z"
+
     return UserProfileResponse(
         id=user.id,
         email=user.email,
         name=user.name,
         display_name=user.display_name,
         connection_code=user.connection_code,
-        connection_code_expires_at=user.connection_code_expires_at.isoformat() if user.connection_code_expires_at else None,
+        connection_code_expires_at=expires_at,
     )
 
 

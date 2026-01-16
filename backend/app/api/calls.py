@@ -8,8 +8,10 @@ from typing import Optional
 import uuid
 
 from app.db.session import get_db
-from app.db.models import Call, CallStatus, UserConnection
+from app.db.session import get_db
+from app.db.models import Call, CallStatus, UserConnection, CallParticipant, User
 from app.core.security import get_current_user, TokenPayload
+from app.websockets.presence_handler import presence_manager
 
 
 router = APIRouter(prefix="/calls", tags=["calls"])
@@ -66,22 +68,126 @@ async def initiate_call(
     # Generate room name if not provided
     room_name = request.room_name or f"call-{uuid.uuid4().hex[:8]}"
 
-    # Create call record with both participants
-    call = Call(
-        user_id=caller_id,  # Kept for backward compatibility
+    # Create call record
+    new_call = Call(
+        user_id=caller_id,
         caller_id=caller_id,
         callee_id=callee_id,
         room_id=room_name,
-        status=CallStatus.INITIATED,
+        status=CallStatus.INITIATED
     )
-    db.add(call)
+    db.add(new_call)
     db.commit()
-    db.refresh(call)
+    db.refresh(new_call)
+    
+    # Add participants
+    caller_participant = CallParticipant(
+        call_id=new_call.id,
+        user_id=caller_id,
+        role="host"
+    )
+    callee_participant = CallParticipant(
+        call_id=new_call.id,
+        user_id=callee_id,
+        role="participant"
+    )
+    db.add(caller_participant)
+    db.add(callee_participant)
+    db.commit()
+
+    # Notify callee via Presence WebSocket
+    await presence_manager.send_personal_message(
+        callee_id,
+        {
+            "type": "incoming_call",
+            "call_id": new_call.id,
+            "caller_id": caller_id,
+            "caller_name": current_user.name,
+            "caller_display_name": current_user.name,
+            "room_name": room_name
+        }
+    )
 
     return CallInitiateResponse(
         room_name=room_name,
-        call_id=call.id,
+        call_id=new_call.id,
     )
+
+
+class InviteRequest(BaseModel):
+    user_id: int
+
+
+@router.post("/{call_id}/invite")
+async def invite_to_call(
+    call_id: int,
+    request: InviteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Invite a user to an existing call.
+    """
+    # Verify call exists and user is a participant
+    call = db.query(Call).filter(Call.id == call_id).first()
+    if not call:
+        raise HTTPException(status_code=404, detail="Call not found")
+        
+    # Check if current user is part of the call (host or participant)
+    # We can check the participants table
+    current_user_id = int(current_user.sub)
+    is_participant = db.query(CallParticipant).filter(
+        CallParticipant.call_id == call_id,
+        CallParticipant.user_id == current_user_id
+    ).first()
+    
+    if not is_participant:
+        raise HTTPException(status_code=403, detail="Not authorized to invite to this call")
+        
+    # Verify target user exists and is a connection
+    target_user = db.query(User).filter(User.id == request.user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found")
+        
+    connection = db.query(UserConnection).filter(
+        (UserConnection.user_id == current_user_id) & (UserConnection.connected_user_id == request.user_id)
+    ).first()
+    
+    if not connection:
+        raise HTTPException(status_code=400, detail="User is not in your connections")
+        
+    # Check if already in call
+    existing_participant = db.query(CallParticipant).filter(
+        CallParticipant.call_id == call_id,
+        CallParticipant.user_id == request.user_id
+    ).first()
+    
+    if existing_participant:
+        return {"message": "User is already in the call"}
+        
+    # Add to participants
+    new_participant = CallParticipant(
+        call_id=call_id,
+        user_id=request.user_id,
+        role="participant"
+    )
+    db.add(new_participant)
+    db.commit()
+    
+    # Notify invited user
+    await presence_manager.send_personal_message(
+        request.user_id,
+        {
+            "type": "incoming_call",
+            "call_id": call_id,
+            "caller_id": current_user_id,
+            "caller_name": current_user.name, 
+            "caller_display_name": current_user.name, 
+            "room_name": call.room_id
+        }
+    )
+    
+    return {"message": "Invitation sent", "call_id": call.id}
 
 
 @router.post("/{call_id}/answer")

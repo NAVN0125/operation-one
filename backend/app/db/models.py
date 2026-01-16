@@ -130,3 +130,22 @@ class UserPresence(Base):
     last_seen = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="presence")
+
+
+class CallParticipant(Base):
+    """Tracks all participants in a call (for group calls)."""
+    __tablename__ = "call_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    call_id = Column(Integer, ForeignKey("calls.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String(50), default="participant")  # host, participant
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    call = relationship("Call", back_populates="participants")
+    user = relationship("User", back_populates="participated_calls")
+
+
+# Add back_populates to User and Call
+User.participated_calls = relationship("CallParticipant", back_populates="user")
+Call.participants = relationship("CallParticipant", back_populates="call", cascade="all, delete-orphan")

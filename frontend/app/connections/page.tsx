@@ -10,6 +10,8 @@ import { ConnectionList } from "@/components/connections/connection-list";
 import { usePresence } from "@/hooks/use-presence";
 import { Search, UserPlus } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface Connection {
     id: number;
     user_id: number;
@@ -38,6 +40,25 @@ export default function ConnectionsPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const getBackendToken = async (): Promise<string | null> => {
+        if (!session?.idToken) return null;
+
+        try {
+            const response = await fetch(`${API_URL}/api/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_token: session.idToken }),
+            });
+
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data.access_token;
+        } catch (error) {
+            console.error("Error getting backend token:", error);
+            return null;
+        }
+    };
+
     useEffect(() => {
         if (!session) {
             router.push("/dashboard");
@@ -59,9 +80,12 @@ export default function ConnectionsPage() {
 
     const fetchConnections = async () => {
         try {
-            const response = await fetch("http://localhost:8000/api/users/me/connections", {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
+            const response = await fetch(`${API_URL}/api/users/me/connections`, {
                 headers: {
-                    Authorization: `Bearer ${session?.idToken}`,
+                    Authorization: `Bearer ${backendToken}`,
                 },
             });
 
@@ -82,11 +106,14 @@ export default function ConnectionsPage() {
         setSearchResult(null);
 
         try {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
             const response = await fetch(
                 `http://localhost:8000/api/users/search?code=${searchCode.toUpperCase()}`,
                 {
                     headers: {
-                        Authorization: `Bearer ${session?.idToken}`,
+                        Authorization: `Bearer ${backendToken}`,
                     },
                 }
             );
@@ -113,11 +140,14 @@ export default function ConnectionsPage() {
         setError(null);
 
         try {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
             const response = await fetch("http://localhost:8000/api/users/me/connections", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.idToken}`,
+                    Authorization: `Bearer ${backendToken}`,
                 },
                 body: JSON.stringify({ connection_code: searchCode.toUpperCase() }),
             });
@@ -140,12 +170,15 @@ export default function ConnectionsPage() {
 
     const handleRemoveConnection = async (userId: number) => {
         try {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
             const response = await fetch(
                 `http://localhost:8000/api/users/me/connections/${userId}`,
                 {
                     method: "DELETE",
                     headers: {
-                        Authorization: `Bearer ${session?.idToken}`,
+                        Authorization: `Bearer ${backendToken}`,
                     },
                 }
             );

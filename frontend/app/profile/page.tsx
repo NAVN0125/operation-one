@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,25 +17,55 @@ interface UserProfile {
     connection_code_expires_at: string | null;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function ProfilePage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [displayName, setDisplayName] = useState("");
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isFetching, setIsFetching] = useState(false);
     const [copied, setCopied] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState<string>("");
 
+    const getBackendToken = async (): Promise<string | null> => {
+        if (!session?.idToken) return null;
+
+        try {
+            const response = await fetch(`${API_URL}/api/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_token: session.idToken }),
+            });
+
+            if (response.status === 401) {
+                console.error("Backend token verification failed. Session might be expired.");
+                signOut();
+                return null;
+            }
+
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data.access_token;
+        } catch (error) {
+            console.error("Error getting backend token:", error);
+            return null;
+        }
+    };
+
     useEffect(() => {
-        if (!session) {
+        if (status === "unauthenticated") {
             router.push("/dashboard");
             return;
         }
 
-        fetchProfile();
-    }, [session, router]);
+        if (status === "authenticated") {
+            fetchProfile();
+        }
+    }, [status, router]);
 
     useEffect(() => {
         if (!profile?.connection_code_expires_at) return;
@@ -46,23 +76,31 @@ export default function ProfilePage() {
             const diff = expiresAt.getTime() - now.getTime();
 
             if (diff <= 0) {
-                setTimeRemaining("Expired");
-                fetchProfile(); // Auto-refresh when expired
+                if (!isFetching && !isRefreshing) {
+                    setTimeRemaining("Refreshing...");
+                    fetchProfile();
+                }
             } else {
-                const minutes = Math.floor(diff / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
+                const totalSeconds = Math.floor(diff / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
                 setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, "0")}`);
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [profile?.connection_code_expires_at]);
+    }, [profile?.connection_code_expires_at, isFetching, isRefreshing]);
 
     const fetchProfile = async () => {
+        if (isFetching) return;
+        setIsFetching(true);
         try {
-            const response = await fetch("http://localhost:8000/api/users/me/profile", {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
+            const response = await fetch(`${API_URL}/api/users/me/profile`, {
                 headers: {
-                    Authorization: `Bearer ${session?.idToken}`,
+                    Authorization: `Bearer ${backendToken}`,
                 },
             });
 
@@ -73,17 +111,22 @@ export default function ProfilePage() {
             }
         } catch (error) {
             console.error("Error fetching profile:", error);
+        } finally {
+            setIsFetching(false);
         }
     };
 
     const handleSaveDisplayName = async () => {
         setIsSaving(true);
         try {
-            const response = await fetch("http://localhost:8000/api/users/me/profile", {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
+            const response = await fetch(`${API_URL}/api/users/me/profile`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.idToken}`,
+                    Authorization: `Bearer ${backendToken}`,
                 },
                 body: JSON.stringify({ display_name: displayName }),
             });
@@ -103,10 +146,13 @@ export default function ProfilePage() {
     const handleRefreshCode = async () => {
         setIsRefreshing(true);
         try {
-            const response = await fetch("http://localhost:8000/api/users/me/refresh-code", {
+            const backendToken = await getBackendToken();
+            if (!backendToken) return;
+
+            const response = await fetch(`${API_URL}/api/users/me/refresh-code`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${session?.idToken}`,
+                    Authorization: `Bearer ${backendToken}`,
                 },
             });
 
@@ -131,8 +177,14 @@ export default function ProfilePage() {
 
     if (!profile) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-8 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-8 flex flex-col items-center justify-center space-y-4">
                 <p className="text-slate-400">Loading profile...</p>
+                <div className="flex flex-col items-center gap-2">
+                    <p className="text-xs text-slate-500">Stuck? Your session might have expired.</p>
+                    <Button variant="outline" size="sm" onClick={() => signOut()}>
+                        Sign Out & Re-login
+                    </Button>
+                </div>
             </div>
         );
     }
