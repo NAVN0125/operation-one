@@ -2,7 +2,7 @@ tunnel: 52ea5dd5-66b3-4192-9e04-344aee7c2a0b
 credentials-file: /Users/n4vn/.cloudflared/52ea5dd5-66b3-4192-9e04-344aee7c2a0b.json
 
 ingress:
-  - hostname: operation_one.n4vn.space
+  - hostname: operation1.n4vn.space
     service: http://localhost:3000
   - hostname: ssh.n4vn.space
     service: ssh://localhost:22
