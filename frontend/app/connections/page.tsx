@@ -294,8 +294,6 @@ export default function ConnectionsPage() {
                     </div>
 
                     {/* Connections List */}
-                    <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm">
-                        <h2 className="text-lg font-semibold mb-4">Your Connections</h2>
 
                         {connections.length === 0 ? (
                             <div className="text-center py-8">
@@ -346,7 +344,6 @@ export default function ConnectionsPage() {
                                 ))}
                             </div>
                         )}
-                    </div>
                 </main>
             </div>
         </div>
