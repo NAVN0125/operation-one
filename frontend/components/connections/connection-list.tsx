@@ -50,9 +50,6 @@ export function ConnectionList({
 
     return (
         <Card className="bg-slate-900/50 backdrop-blur-sm border-slate-700">
-            <CardHeader>
-                <CardTitle className="text-white">Your Connections</CardTitle>
-            </CardHeader>
             <CardContent>
                 <div className="space-y-3">
                     {connections.map((connection) => (
