@@ -44,6 +44,7 @@ services:
       - NEXT_PUBLIC_API_URL=https://operation1.n4vn.space/service
       - NEXTAUTH_URL=https://operation1.n4vn.space
       - AUTH_TRUST_HOST=true
+      - BACKEND_URL=http://backend:8000
     depends_on:
       - backend
     restart: always
