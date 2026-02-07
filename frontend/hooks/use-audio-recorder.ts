@@ -4,60 +4,35 @@ import { useState, useCallback, useRef } from "react";
 
 interface UseAudioRecorderReturn {
     isRecording: boolean;
+    stream: MediaStream | null;
     audioBlob: Blob | null;
     audioUrl: string | null;
-    startRecording: (onData?: (base64Data: string) => void) => Promise<void>;
+    startRecording: () => Promise<MediaStream>;
     stopRecording: () => void;
     clearRecording: () => void;
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
     const [isRecording, setIsRecording] = useState(false);
+    const [stream, setStream] = useState<MediaStream | null>(null);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
 
-    const startRecording = useCallback(async (onData?: (base64Data: string) => void) => {
+    const startRecording = useCallback(async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: "audio/webm;codecs=opus",
-            });
-
-            chunksRef.current = [];
-
-            mediaRecorder.ondataavailable = async (event) => {
-                if (event.data.size > 0) {
-                    chunksRef.current.push(event.data);
-
-                    if (onData) {
-                        // Convert blob to base64 for WebSocket streaming
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            if (typeof reader.result === "string") {
-                                const base64 = reader.result.split(",")[1];
-                                onData(base64);
-                            }
-                        };
-                        reader.readAsDataURL(event.data);
-                    }
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
                 }
-            };
-
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-                setAudioBlob(blob);
-                setAudioUrl(URL.createObjectURL(blob));
-
-                // Stop all tracks
-                stream.getTracks().forEach((track) => track.stop());
-            };
-
-            mediaRecorderRef.current = mediaRecorder;
-            mediaRecorder.start(250); // Small interval for real-time streaming
+            });
+            setStream(mediaStream);
             setIsRecording(true);
+            return mediaStream;
         } catch (error) {
             console.error("Failed to start recording:", error);
             throw error;
@@ -65,11 +40,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }, []);
 
     const stopRecording = useCallback(() => {
-        if (mediaRecorderRef.current && isRecording) {
-            mediaRecorderRef.current.stop();
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            setStream(null);
             setIsRecording(false);
         }
-    }, [isRecording]);
+        // Note: We don't handle MediaRecorder here for the CALL recording anymore.
+        // This hook is now primarily for getting the stream.
+        // If we need standalone recording, we can add it back, but use-call handles the mixed recording.
+    }, [stream]);
 
     const clearRecording = useCallback(() => {
         if (audioUrl) {
@@ -81,6 +60,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
 
     return {
         isRecording,
+        stream,
         audioBlob,
         audioUrl,
         startRecording,

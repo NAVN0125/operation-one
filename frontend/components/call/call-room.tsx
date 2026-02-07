@@ -18,7 +18,6 @@ interface CallRoomProps {
     onCallEnd: () => void;
     onCallAnswered: () => void;
     onInviteParticipant?: () => void;
-    onAudioData: (base64Audio: string) => void;
     onTranscriptReceived?: (text: string, isFinal: boolean) => void;
 }
 
@@ -30,7 +29,6 @@ export function CallRoom({
     onCallEnd,
     onCallAnswered,
     onInviteParticipant,
-    onAudioData,
     onTranscriptReceived,
 }: CallRoomProps) {
     const [isAnswered, setIsAnswered] = useState(status === "answered");
