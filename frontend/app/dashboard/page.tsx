@@ -11,8 +11,8 @@ import { ConnectionList } from "@/components/connections/connection-list";
 import { useCall } from "@/hooks/use-call";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { usePresence } from "@/hooks/use-presence";
-import { WindowSelector } from "@/components/WindowSelector";
-import { User, Users, Phone, LogOut, Settings, Activity } from "lucide-react";
+import { NoteRecorder } from "@/components/NoteRecorder";
+import { User, Users, Phone, LogOut, Mic } from "lucide-react";
 
 interface Connection {
     id: number;
@@ -320,16 +320,16 @@ const DashboardContent = () => {
                         </div>
                     )}
 
-                    {/* External Recorder Section */}
+                    {/* Voice Notes Section */}
                     <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-blue-400" />
-                            Meeting Recorder
+                            <Mic className="w-5 h-5 text-purple-400" />
+                            Voice Notes
                         </h2>
-                        <p className="text-slate-400 mb-6 text-sm">
-                            Detect and record external meetings (Google Meet, Zoom) to analyze them later.
+                        <p className="text-slate-400 mb-4 text-sm">
+                            Record voice notes and get AI-powered transcription and analysis.
                         </p>
-                        <WindowSelector />
+                        <NoteRecorder />
                     </div>
 
                     {/* Call Interface */}
