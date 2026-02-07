@@ -59,10 +59,16 @@ export default function ProfilePage() {
             return;
         }
 
+        // Handle token refresh errors
+        if (session?.error === "RefreshAccessTokenError") {
+            signOut();
+            return;
+        }
+
         if (status === "authenticated") {
             fetchProfile();
         }
-    }, [status, router]);
+    }, [status, router, session?.error]);
 
     useEffect(() => {
         if (!profile?.connection_code_expires_at) return;

@@ -65,10 +65,16 @@ export default function ConnectionsPage() {
             return;
         }
 
+        // Handle token refresh errors
+        if (session?.error === "RefreshAccessTokenError") {
+            signOut();
+            return;
+        }
+
         if (status === "authenticated") {
             fetchConnections();
         }
-    }, [status, router]);
+    }, [status, router, session?.error]);
 
     useEffect(() => {
         setConnections((prev) =>

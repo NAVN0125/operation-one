@@ -11,7 +11,8 @@ import { ConnectionList } from "@/components/connections/connection-list";
 import { useCall } from "@/hooks/use-call";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { usePresence } from "@/hooks/use-presence";
-import { User, Users, Phone, LogOut, Settings } from "lucide-react";
+import { WindowSelector } from "@/components/WindowSelector";
+import { User, Users, Phone, LogOut, Settings, Activity } from "lucide-react";
 
 interface Connection {
     id: number;
@@ -27,8 +28,19 @@ const DashboardContent = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { isUserOnline, incomingCall, clearIncomingCall } = usePresence();
-    const { callState, transcript, initiateCall, acceptIncomingCall, answerCall, endCall, sendAudio, isLoading, error } = useCall();
-    const { isRecording, audioUrl, startRecording, stopRecording, clearRecording } = useAudioRecorder();
+    const {
+        callState,
+        transcript,
+        initiateCall,
+        acceptIncomingCall,
+        answerCall,
+        endCall,
+        isLoading,
+        error,
+        isRecording,
+        audioUrl,
+        clearRecording
+    } = useCall();
 
     const [connections, setConnections] = useState<Connection[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -44,6 +56,14 @@ const DashboardContent = () => {
             setSelectedUserId(parseInt(callUser));
         }
     }, [searchParams]);
+
+    // Handle token refresh errors
+    useEffect(() => {
+        if (session?.error === "RefreshAccessTokenError") {
+            // Token refresh failed, sign out to force re-authentication
+            signOut();
+        }
+    }, [session?.error]);
 
     useEffect(() => {
         if (session?.idToken) {
@@ -65,13 +85,6 @@ const DashboardContent = () => {
             }))
         );
     }, [isUserOnline]);
-
-    // Start recording for the CALLER when the call is answered by the other party
-    useEffect(() => {
-        if (callState.status === "answered" && isCaller && !isRecording) {
-            startRecording(sendAudio);
-        }
-    }, [callState.status, isCaller, isRecording, startRecording, sendAudio]);
 
     const getBackendToken = async (): Promise<string | null> => {
         if (!session?.idToken) return null;
@@ -128,7 +141,6 @@ const DashboardContent = () => {
             }]);
         }
         await initiateCall(targetUserId);
-        // Don't start recording yet - wait for the call to be answered
     };
 
     const handleAcceptCall = async () => {
@@ -141,7 +153,6 @@ const DashboardContent = () => {
         }]);
         await acceptIncomingCall(incomingCall.call_id, incomingCall.room_name);
         clearIncomingCall();
-        await startRecording(sendAudio);
     };
 
     const handleDeclineCall = () => {
@@ -150,11 +161,9 @@ const DashboardContent = () => {
 
     const handleAnswerCall = async () => {
         await answerCall();
-        await startRecording(sendAudio);
     };
 
     const handleEndCall = async () => {
-        stopRecording();
         await endCall();
         setShowAnalysisModal(true);
         setActiveParticipants([]);
@@ -231,6 +240,12 @@ const DashboardContent = () => {
         }
     };
 
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            router.push("/login");
+        }
+    }, [status, router]);
+
     if (status === "loading") {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -240,7 +255,6 @@ const DashboardContent = () => {
     }
 
     if (!session) {
-        router.push("/login");
         return null;
     }
 
@@ -306,6 +320,18 @@ const DashboardContent = () => {
                         </div>
                     )}
 
+                    {/* External Recorder Section */}
+                    <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm">
+                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <Activity className="w-5 h-5 text-blue-400" />
+                            Meeting Recorder
+                        </h2>
+                        <p className="text-slate-400 mb-6 text-sm">
+                            Detect and record external meetings (Google Meet, Zoom) to analyze them later.
+                        </p>
+                        <WindowSelector />
+                    </div>
+
                     {/* Call Interface */}
                     {callState.status === "idle" || callState.status === "ended" ? (
                         selectedUserId ? (
@@ -363,7 +389,6 @@ const DashboardContent = () => {
                             onCallAnswered={handleAnswerCall}
                             onCallEnd={handleEndCall}
                             onInviteParticipant={() => setShowInviteModal(true)}
-                            onAudioData={sendAudio}
                         />
                     )}
 
@@ -371,21 +396,21 @@ const DashboardContent = () => {
                     {isRecording && (
                         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
                             <span className="h-3 w-3 bg-red-500 rounded-full animate-pulse" />
-                            <span className="text-red-400">Streaming audio to server...</span>
+                            <span className="text-red-400">Recording Call (Uploading on End)...</span>
                         </div>
                     )}
 
                     {/* Audio Playback */}
                     {audioUrl && !isRecording && (
                         <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm space-y-4">
-                            <h2 className="text-lg font-semibold">Call Recording</h2>
+                            <h2 className="text-lg font-semibold">Call Recording (Saved to Server)</h2>
                             <audio src={audioUrl} controls className="w-full" />
                             <Button
                                 variant="outline"
                                 onClick={clearRecording}
                                 className="border-slate-700 bg-slate-900/50 hover:bg-slate-800"
                             >
-                                Clear Recording
+                                Clear Preview
                             </Button>
                         </div>
                     )}
