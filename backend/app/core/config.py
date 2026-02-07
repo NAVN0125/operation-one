@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: Optional[str] = None
     
+    # Transcription provider: "local" or "elevenlabs"
+    transcription_provider: str = "local"
+    
     # OpenRouter
     openrouter_api_key: Optional[str] = None
 

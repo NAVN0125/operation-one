@@ -13,7 +13,9 @@ from app.db.session import get_db
 from app.db.models import MeetingRecording, RecordingStatus
 from app.core.security import get_current_user, TokenPayload
 from app.services.transcription_service import transcription_service
+from app.services.local_transcription_service import local_transcription_service
 from app.services.analysis_service import analysis_service
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/recordings", tags=["recordings"])
@@ -132,7 +134,11 @@ async def transcribe_recording(
     db.commit()
     
     try:
-        transcript = await transcription_service.transcribe_audio_file(recording.file_path)
+        # Use local or ElevenLabs based on config
+        if settings.transcription_provider == "local":
+            transcript = await local_transcription_service.transcribe_audio_file(recording.file_path)
+        else:
+            transcript = await transcription_service.transcribe_audio_file(recording.file_path)
         recording.transcript = transcript
         recording.status = RecordingStatus.TRANSCRIBED
         db.commit()
