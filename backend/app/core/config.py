@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
     
-    # AssemblyAI
-    assemblyai_api_key: Optional[str] = None
+    # ElevenLabs
+    elevenlabs_api_key: Optional[str] = None
     
     # OpenRouter
     openrouter_api_key: Optional[str] = None

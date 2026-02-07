@@ -8,6 +8,7 @@ from app.api.auth import router as auth_router
 from app.api.calls import router as calls_router
 from app.api.analysis import router as analysis_router
 from app.api.users import router as users_router
+from app.api.recordings import router as recordings_router
 from app.websockets.call_handler import router as ws_router
 from app.websockets.presence_handler import router as presence_router
 
@@ -31,6 +32,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(calls_router, prefix="/api")
 app.include_router(analysis_router, prefix="/api")
+app.include_router(recordings_router, prefix="/api")
 app.include_router(ws_router)
 app.include_router(presence_router)
 

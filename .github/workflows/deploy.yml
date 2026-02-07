@@ -1,0 +1,47 @@
+name: Deploy via SSH
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cloudflared
+        run: |
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          # Create proxy script safely using cat
+          cat > cf-proxy.sh << 'EOF'
+          #!/bin/bash
+          cloudflared access ssh --hostname "$1" --service-token-id "$TUNNEL_SERVICE_TOKEN_ID" --service-token-secret "$TUNNEL_SERVICE_TOKEN_SECRET"
+          EOF
+          chmod +x cf-proxy.sh
+          
+          ssh -v -o StrictHostKeyChecking=no \
+              -o "ProxyCommand=$(pwd)/cf-proxy.sh %h" \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            set -e
+            export PATH=\$PATH:/usr/local/bin:/usr/bin
+            cd ${{ secrets.WORK_DIR }}
+            git pull origin master
+            docker compose up -d --build --remove-orphans
+          "

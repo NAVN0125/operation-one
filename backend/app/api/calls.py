@@ -1,7 +1,9 @@
 """
 Call API routes
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+import shutil
+from pathlib import Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -267,3 +269,35 @@ async def get_call(
         started_at=call.started_at.isoformat() if call.started_at else None,
         ended_at=call.ended_at.isoformat() if call.ended_at else None,
     )
+
+
+@router.post("/{call_id}/recording")
+async def upload_recording(
+    call_id: int,
+    file: UploadFile = File(...),
+    current_user: TokenPayload = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a recording for a completed call."""
+    call = db.query(Call).filter(Call.id == call_id).first()
+    if not call:
+        raise HTTPException(status_code=404, detail="Call not found")
+        
+    # Ensure uploads directory exists
+    upload_dir = Path("uploads")
+    upload_dir.mkdir(exist_ok=True)
+    
+    # Save file
+    file_path = upload_dir / f"call_{call_id}_{file.filename}"
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save recording: {e}")
+        
+    # Update call record
+    # Note: In production, upload to S3/Cloud Storage and save URL
+    call.recording_url = str(file_path)
+    db.commit()
+    
+    return {"message": "Recording uploaded successfully", "url": str(file_path)}

@@ -1,73 +1,74 @@
 """
-AssemblyAI Real-time Transcription Service
+ElevenLabs Transcription Service
 """
-import assemblyai as aai
-from typing import Optional, Callable
+from typing import Optional
+from elevenlabs import ElevenLabs
 from app.core.config import settings
 
 
 class TranscriptionService:
-    """Service for real-time transcription using AssemblyAI."""
+    """Service for audio transcription using ElevenLabs Speech-to-Text."""
 
     def __init__(self):
-        if settings.assemblyai_api_key:
-            aai.settings.api_key = settings.assemblyai_api_key
+        self.client = None
+        if settings.elevenlabs_api_key:
+            self.client = ElevenLabs(api_key=settings.elevenlabs_api_key)
 
-    def create_realtime_transcriber(
-        self,
-        on_transcript: Callable[[str, bool], None],
-        on_error: Optional[Callable[[Exception], None]] = None,
-    ) -> aai.RealtimeTranscriber:
+    async def transcribe_audio_file(self, audio_path: str) -> Optional[str]:
         """
-        Create a real-time transcriber instance.
+        Transcribe an audio file using ElevenLabs Speech-to-Text.
         
         Args:
-            on_transcript: Callback for transcript updates (text, is_final).
-            on_error: Callback for errors.
-        
-        Returns:
-            RealtimeTranscriber instance.
-        """
-        if not settings.assemblyai_api_key:
-            raise ValueError("AssemblyAI API key not configured")
-
-        def handle_transcript(transcript: aai.RealtimeTranscript):
-            if transcript.text:
-                is_final = isinstance(transcript, aai.RealtimeFinalTranscript)
-                on_transcript(transcript.text, is_final)
-
-        def handle_error(error: aai.RealtimeError):
-            if on_error:
-                on_error(Exception(str(error)))
-
-        transcriber = aai.RealtimeTranscriber(
-            sample_rate=16000,
-            on_data=handle_transcript,
-            on_error=handle_error,
-        )
-
-        return transcriber
-
-    async def transcribe_audio_file(self, audio_url: str) -> Optional[str]:
-        """
-        Transcribe an audio file (post-call).
-        
-        Args:
-            audio_url: URL of the audio file.
+            audio_path: Path to the audio file.
         
         Returns:
             Transcription text.
         """
-        if not settings.assemblyai_api_key:
-            raise ValueError("AssemblyAI API key not configured")
+        if not settings.elevenlabs_api_key:
+            raise ValueError("ElevenLabs API key not configured")
 
-        transcriber = aai.Transcriber()
-        transcript = transcriber.transcribe(audio_url)
+        if not self.client:
+            self.client = ElevenLabs(api_key=settings.elevenlabs_api_key)
 
-        if transcript.status == aai.TranscriptStatus.error:
-            raise Exception(f"Transcription failed: {transcript.error}")
+        # Open and transcribe the audio file
+        with open(audio_path, "rb") as audio_file:
+            result = self.client.speech_to_text.convert(
+                file=audio_file,
+                model_id="scribe_v1",  # ElevenLabs default STT model
+                language_code="en",  # Default to English
+            )
 
-        return transcript.text
+        return result.text if hasattr(result, 'text') else str(result)
+
+    async def transcribe_audio_bytes(self, audio_bytes: bytes, filename: str = "audio.webm") -> Optional[str]:
+        """
+        Transcribe audio from bytes using ElevenLabs Speech-to-Text.
+        
+        Args:
+            audio_bytes: Audio data as bytes.
+            filename: Name hint for the audio format.
+        
+        Returns:
+            Transcription text.
+        """
+        if not settings.elevenlabs_api_key:
+            raise ValueError("ElevenLabs API key not configured")
+
+        if not self.client:
+            self.client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+
+        # ElevenLabs can accept file-like objects
+        import io
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = filename
+
+        result = self.client.speech_to_text.convert(
+            file=audio_file,
+            model_id="scribe_v1",
+            language_code="en",
+        )
+
+        return result.text if hasattr(result, 'text') else str(result)
 
 
 transcription_service = TranscriptionService()

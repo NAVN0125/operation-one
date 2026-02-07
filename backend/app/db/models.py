@@ -149,3 +149,36 @@ class CallParticipant(Base):
 # Add back_populates to User and Call
 User.participated_calls = relationship("CallParticipant", back_populates="user")
 Call.participants = relationship("CallParticipant", back_populates="call", cascade="all, delete-orphan")
+
+
+class RecordingStatus(str, enum.Enum):
+    UPLOADED = "uploaded"
+    TRANSCRIBING = "transcribing"
+    TRANSCRIBED = "transcribed"
+    ANALYZING = "analyzing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class MeetingRecording(Base):
+    """Stores external meeting recordings (Google Meet, Zoom, etc.)."""
+    __tablename__ = "meeting_recordings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(512), nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    status = Column(Enum(RecordingStatus, values_callable=lambda x: [e.value for e in x]), default=RecordingStatus.UPLOADED)
+    transcript = Column(Text, nullable=True)
+    analysis_result = Column(Text, nullable=True)
+    user_interpretation = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    analyzed_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="meeting_recordings")
+
+
+# Add meeting_recordings relationship to User
+User.meeting_recordings = relationship("MeetingRecording", back_populates="user")
+
