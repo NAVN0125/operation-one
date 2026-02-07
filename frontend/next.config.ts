@@ -2,10 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async rewrites() {
+    console.log("Backend URL:", process.env.BACKEND_URL);
     return [
       {
         source: "/service/:path*",
-        destination: process.env.BACKEND_URL || "http://127.0.0.1:8000/:path*",
+        destination: process.env.BACKEND_URL || "http://backend:8000/:path*",
       },
     ];
   },
