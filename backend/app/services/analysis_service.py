@@ -17,7 +17,7 @@ class AnalysisService:
         self,
         transcript: str,
         user_interpretation: str,
-        model: str = "xiaomi/mimo-v2-flash:free",
+        model: str = "stepfun/step-3.5-flash:free",
     ) -> Optional[str]:
         """
         Analyze a call transcript with user interpretation context.
