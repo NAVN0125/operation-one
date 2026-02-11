@@ -23,6 +23,10 @@ interface UseCallReturn {
     isRecording: boolean;
     audioUrl: string | null;
     clearRecording: () => void;
+    // Screen sharing
+    isSharingScreen: boolean;
+    startScreenShare: () => Promise<void>;
+    stopScreenShare: () => void;
 }
 
 const getWsUrl = () => {
@@ -54,6 +58,11 @@ export function useCall(): UseCallReturn {
     // Recording State
     const [isRecording, setIsRecording] = useState(false);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+    // Screen sharing state
+    const [isSharingScreen, setIsSharingScreen] = useState(false);
+    const screenStreamRef = useRef<MediaStream | null>(null);
+    const screenSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -294,7 +303,64 @@ export function useCall(): UseCallReturn {
         });
     }, [createPeerConnection, localStream, session]);
 
+    // Screen share: start capturing tab audio and mix into existing AudioContext
+    const startScreenShare = useCallback(async () => {
+        try {
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                audio: true,
+                video: true, // Required by spec, but we only use audio
+            });
+
+            // Check if we actually got an audio track
+            const audioTracks = screenStream.getAudioTracks();
+            if (audioTracks.length === 0) {
+                console.warn("No audio track in screen share. User may not have checked 'Share tab audio'.");
+                screenStream.getTracks().forEach(t => t.stop());
+                setError("No audio was shared. Please check 'Share tab audio' when selecting a tab.");
+                return;
+            }
+
+            screenStreamRef.current = screenStream;
+            setIsSharingScreen(true);
+
+            // If AudioContext + destination already exist (call is active), add screen audio to mix
+            if (audioContextRef.current && mixedDestinationRef.current) {
+                const screenSource = audioContextRef.current.createMediaStreamSource(screenStream);
+                screenSource.connect(mixedDestinationRef.current);
+                screenSourceNodeRef.current = screenSource;
+            }
+
+            // Listen for user stopping via browser UI (clicking "Stop sharing")
+            screenStream.getVideoTracks()[0]?.addEventListener('ended', () => {
+                stopScreenShare();
+            });
+
+        } catch (e) {
+            if ((e as DOMException).name === 'NotAllowedError') {
+                console.log("Screen share cancelled by user.");
+            } else {
+                console.error("Error starting screen share:", e);
+                setError("Failed to start screen sharing.");
+            }
+        }
+    }, []);
+
+    const stopScreenShare = useCallback(() => {
+        if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(t => t.stop());
+            screenStreamRef.current = null;
+        }
+        if (screenSourceNodeRef.current) {
+            screenSourceNodeRef.current.disconnect();
+            screenSourceNodeRef.current = null;
+        }
+        setIsSharingScreen(false);
+    }, []);
+
     const cleanupCall = useCallback(() => {
+        // Stop screen share if active
+        stopScreenShare();
+
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
@@ -307,7 +373,7 @@ export function useCall(): UseCallReturn {
             callRecorderRef.current.stop(); // This triggers upload
         }
         stopMic();
-    }, [stopMic]);
+    }, [stopMic, stopScreenShare]);
 
     const initiateCall = useCallback(
         async (targetUserId: number, roomName?: string) => {
@@ -460,5 +526,8 @@ export function useCall(): UseCallReturn {
         isRecording,
         audioUrl,
         clearRecording: clearRecordingWrapper,
+        isSharingScreen,
+        startScreenShare,
+        stopScreenShare,
     };
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Monitor, MonitorOff } from "lucide-react";
 
 interface Participant {
     id: number;
@@ -19,6 +20,10 @@ interface CallRoomProps {
     onCallAnswered: () => void;
     onInviteParticipant?: () => void;
     onTranscriptReceived?: (text: string, isFinal: boolean) => void;
+    // Screen sharing
+    isSharingScreen?: boolean;
+    onStartScreenShare?: () => void;
+    onStopScreenShare?: () => void;
 }
 
 export function CallRoom({
@@ -30,6 +35,9 @@ export function CallRoom({
     onCallAnswered,
     onInviteParticipant,
     onTranscriptReceived,
+    isSharingScreen = false,
+    onStartScreenShare,
+    onStopScreenShare,
 }: CallRoomProps) {
     const [isAnswered, setIsAnswered] = useState(status === "answered");
 
@@ -89,6 +97,22 @@ export function CallRoom({
                             className="bg-green-600 hover:bg-green-700 text-white w-full"
                         >
                             Answer
+                        </Button>
+                    )}
+                    {isAnswered && onStartScreenShare && onStopScreenShare && (
+                        <Button
+                            onClick={isSharingScreen ? onStopScreenShare : onStartScreenShare}
+                            variant="outline"
+                            className={`flex items-center gap-2 ${isSharingScreen
+                                    ? "border-purple-500/50 text-purple-400 bg-purple-500/10 hover:bg-purple-500/20"
+                                    : "border-slate-700 bg-slate-900/50 hover:bg-slate-800"
+                                }`}
+                        >
+                            {isSharingScreen ? (
+                                <><MonitorOff className="w-4 h-4" /> Stop Sharing</>
+                            ) : (
+                                <><Monitor className="w-4 h-4" /> Share Tab Audio</>
+                            )}
                         </Button>
                     )}
                     <Button

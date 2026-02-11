@@ -39,7 +39,10 @@ const DashboardContent = () => {
         error,
         isRecording,
         audioUrl,
-        clearRecording
+        clearRecording,
+        isSharingScreen,
+        startScreenShare,
+        stopScreenShare,
     } = useCall();
 
     const [connections, setConnections] = useState<Connection[]>([]);
@@ -389,6 +392,9 @@ const DashboardContent = () => {
                             onCallAnswered={handleAnswerCall}
                             onCallEnd={handleEndCall}
                             onInviteParticipant={() => setShowInviteModal(true)}
+                            isSharingScreen={isSharingScreen}
+                            onStartScreenShare={startScreenShare}
+                            onStopScreenShare={stopScreenShare}
                         />
                     )}
 
