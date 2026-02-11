@@ -68,7 +68,7 @@ def verify_jwt_token(token: str) -> TokenPayload:
 async def verify_google_token(id_token: str) -> GoogleUser:
     """Verify a Google ID token and return user info."""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             print(f"Verifying Google token (length: {len(id_token if id_token else '')})")
             # Use POST for tokeninfo as it's more robust for long tokens
             response = await client.post(
