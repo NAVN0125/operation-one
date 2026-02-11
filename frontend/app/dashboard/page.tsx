@@ -12,7 +12,8 @@ import { useCall } from "@/hooks/use-call";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { usePresence } from "@/hooks/use-presence";
 import { NoteRecorder } from "@/components/NoteRecorder";
-import { User, Users, Phone, LogOut, Mic } from "lucide-react";
+import { MeetingRecorder } from "@/components/MeetingRecorder";
+import { User, Users, Phone, LogOut, Mic, Monitor } from "lucide-react";
 
 interface Connection {
     id: number;
@@ -333,6 +334,18 @@ const DashboardContent = () => {
                             Record voice notes and get AI-powered transcription and analysis.
                         </p>
                         <NoteRecorder />
+                    </div>
+
+                    {/* Meeting Recorder Section */}
+                    <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800 backdrop-blur-sm">
+                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <Monitor className="w-5 h-5 text-indigo-400" />
+                            Meeting Recorder
+                        </h2>
+                        <p className="text-slate-400 mb-4 text-sm">
+                            Capture audio from a browser tab (e.g. Google Meet) along with your microphone for AI analysis.
+                        </p>
+                        <MeetingRecorder />
                     </div>
 
                     {/* Call Interface */}
