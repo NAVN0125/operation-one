@@ -46,7 +46,6 @@ class LocalTranscriptionService:
         segments, info = model.transcribe(
             audio_path,
             beam_size=5,
-            language="en",
             vad_filter=True,  # Voice Activity Detection for cleaner segments
         )
         
