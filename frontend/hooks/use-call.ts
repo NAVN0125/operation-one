@@ -39,7 +39,7 @@ const ICE_SERVERS = {
 };
 
 export function useCall(): UseCallReturn {
-    const { data: session } = useSession();
+    const { data: session, update } = useSession();
     const { stream: localStream, startRecording: startMic, stopRecording: stopMic } = useAudioRecorder();
 
     const [callState, setCallState] = useState<CallState>({
@@ -82,11 +82,23 @@ export function useCall(): UseCallReturn {
     const getBackendToken = useCallback(async (): Promise<string | null> => {
         if (!session?.idToken) return null;
 
-        const response = await fetch(`/service/api/auth/google`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_token: session.idToken }),
-        });
+        const fetchToken = async (idToken: string) => {
+            return await fetch(`/service/api/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_token: idToken }),
+            });
+        };
+
+        let response = await fetchToken(session.idToken);
+
+        if (response.status === 401) {
+            console.log("Backend token exchange failed (401), refreshing session...");
+            const newSession = await update();
+            if (newSession?.idToken) {
+                response = await fetchToken(newSession.idToken);
+            }
+        }
 
         if (!response.ok) {
             throw new Error("Failed to authenticate with backend");
@@ -94,7 +106,7 @@ export function useCall(): UseCallReturn {
 
         const data = await response.json();
         return data.access_token;
-    }, [session]);
+    }, [session, update]);
 
     // Initialize WebRTC Peer Connection
     const createPeerConnection = useCallback((socket: WebSocket, callId: number) => {

@@ -40,7 +40,7 @@ const getWsUrl = () => {
 };
 
 export function usePresence() {
-    const { data: session } = useSession();
+    const { data: session, update } = useSession();
     const [isConnected, setIsConnected] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
     const [incomingCall, setIncomingCall] = useState<IncomingCallMessage | null>(null);
@@ -59,6 +59,12 @@ export function usePresence() {
                 body: JSON.stringify({ id_token: session.idToken }),
             });
 
+            if (response.status === 401) {
+                console.log("Backend token exchange failed (401), refreshing session...");
+                await update(); // This will trigger a re-render and re-run the effect
+                return null;
+            }
+
             if (!response.ok) return null;
             const data = await response.json();
             return data.access_token;
@@ -66,7 +72,7 @@ export function usePresence() {
             console.error("Error getting backend token:", error);
             return null;
         }
-    }, [session?.idToken]);
+    }, [session?.idToken, update]);
 
     const isConnectingRef = useRef(false);
 
